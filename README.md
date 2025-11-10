@@ -63,18 +63,24 @@ Why LoRA/QLoRA: dramatically lower VRAM and compute vs full fine-tuning while pr
 
 !pip install transformers datasets peft accelerate bitsandbytes evaluate
 
+```python
 import os
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorWithPadding
 from transformers import Trainer, TrainingArguments
 from peft import LoraConfig, get_peft_model
+'''
 
 1) Load base model (decoder-only) and tokenizer
+
+```python
 model_name = "meta-llama/Llama-3-8b-Instruct"  # example; pick a small instruction-tuned model you can run
 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 tokenizer.pad_token = tokenizer.eos_token
-
+'''
 2) Prepare dataset: fields -> {"text": email_text, "label": 0/1, "rationale": optional}
+
+```python
 ds = load_dataset("json", data_files={"train": "train.jsonl", "validation": "val.jsonl"})
 
 def format_example(example):
@@ -86,8 +92,11 @@ def format_example(example):
     return {"input_text": prompt, "label": example["label"]}
 
 ds = ds.map(format_example)
+'''
 
 3) Tokenize
+
+```python
 max_len = 2048
 def tokenize(batch):
     return tokenizer(
@@ -95,8 +104,10 @@ def tokenize(batch):
     )
 
 tokenized = ds.map(tokenize, batched=True, remove_columns=ds["train"].column_names)
+'''
 
 4) Load model and attach LoRA adapters
+```python
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype="auto",
@@ -110,11 +121,16 @@ lora_config = LoraConfig(
     target_modules=["q_proj","v_proj","k_proj","o_proj","gate_proj","up_proj","down_proj"]  # typical LLM layers
 )
 model = get_peft_model(model, lora_config)
+'''
 
 Optional: Freeze base weights is handled by PEFT; only adapter params will be trainable
+```python
 model.print_trainable_parameters()
+'''
 
 5) Training settings
+
+```python
 args = TrainingArguments(
     output_dir="outputs/lora-phish-classifier",
     per_device_train_batch_size=4,
@@ -130,8 +146,10 @@ args = TrainingArguments(
     save_steps=200,
     save_total_limit=2,
 )
+'''
 
 6) Trainer
+```python
 data_collator = DataCollatorWithPadding(tokenizer)
 trainer = Trainer(
     model=model,
@@ -144,6 +162,7 @@ trainer = Trainer(
 
 trainer.train()
 trainer.save_model("outputs/lora-phish-classifier")
+'''
 
 Sources: Overview and benefits of LoRA/QLoRA as parameter-efficient fine-tuning approaches; empirical evidence of LoRA’s effectiveness for phishing/malicious URL detection tasks.
 
@@ -159,8 +178,11 @@ Example: For the same email, pair a correct, concise classification+rationale vs
 
 Example code: DPO training (TRL-style)
 
-!pip install trl transformers datasets peft accelerate bitsandbytes
+'''
+pip install trl transformers datasets peft accelerate bitsandbytes
+'''
 
+```python
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
@@ -182,17 +204,21 @@ def tokenize_batch(batch):
     }
 
 dpo_ds = dpo_ds.map(tokenize_batch, batched=True)
+'''
 
 Load model with LoRA adapters active
 
+```python
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype="auto",
     device_map="auto"
 )
+'''
 
 DPO configuration
 
+```python
 dpo_config = DPOConfig(
     output_dir="outputs/dpo-phish-classifier",
     per_device_train_batch_size=2,
@@ -207,9 +233,11 @@ dpo_config = DPOConfig(
     save_steps=200,
     save_total_limit=2,
 )
+'''
 
 Trainer
 
+```python
 trainer = DPOTrainer(
     model=model,
     args=dpo_config,
@@ -220,6 +248,7 @@ trainer = DPOTrainer(
 
 trainer.train()
 trainer.save_model("outputs/dpo-phish-classifier")
+'''
 
 References: Official DPO implementation and technical descriptions demonstrating offline preference optimization without reward models and with lighter infrastructure than RLHF.
 
@@ -227,17 +256,14 @@ Evaluation and deployment
 
 ### Metrics:
 
-Accuracy/F1 (macro): class balance.
-
-AUROC: threshold-insensitive separability.
-
-Calibration: Brier score, ECE; add abstain threshold for human review.
+- Accuracy/F1 (macro): class balance.
+- AUROC: threshold-insensitive separability.
+- Calibration: Brier score, ECE; add abstain threshold for human review.
 
 Stress tests:
 
-Adversarial text: obfuscated URLs, unicode confusables, homograph domains, fake university portals.
-
-Domain shift: new lures (housing, OSAP, parking) and benign emails with similar keywords.
+- Adversarial text: obfuscated URLs, unicode confusables, homograph domains, fake university portals.
+- Domain shift: new lures (housing, OSAP, parking) and benign emails with similar keywords.
 
 Inference prompt:
 
@@ -252,8 +278,6 @@ Label quality: Balanced classes, hard negatives, and clear rationales improve DP
 Adapter management: Save and version adapters per task; they’re small and portable.
 
 When to skip DPO: If explanations aren’t required and your SFT accuracy is strong, DPO is optional. Prefer DPO when you want consistent, concise rationales and better calibration.
-
-RAG: Use downstream for fact verification (e.g., checking claims against U of T policies), not for the binary phishing decision.
 
 Evidence of LoRA’s effectiveness in phishing/malicious URL tasks and its dramatic reduction in trainable parameters supports this setup for efficient training on modest hardware. DPO sources confirm its simplicity and suitability for preference alignment without the overhead of reward modeling and online RLHF.
 
