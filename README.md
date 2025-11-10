@@ -25,6 +25,7 @@ The following pipeline is proposed for finetuning a small LM for phishing detect
 
 
 ## Methodology
+
 This workflow fine-tunes a small, instruction-tuned decoder model with parameter-efficient adapters (LoRA/QLoRA) for supervised phishing classification, then optionally applies DPO to improve preference-aligned outputs (clearer rationales, better calibration). LoRA/QLoRA drastically reduce trainable parameters and memory needs, enabling efficient adaptation on modest hardware. DPO aligns model outputs using human preferences without reward models or online rollouts, making it lighter than PPO-style RLHF.
 
 Data schema and prompting
@@ -57,21 +58,23 @@ Model: small instruction-tuned decoder LLM (3–7B).
 
 Why LoRA/QLoRA: dramatically lower VRAM and compute vs full fine-tuning while preserving accuracy; QLoRA quantizes the base model to 4-bit to further reduce memory.
 
-Example code: supervised LoRA fine-tune (Hugging Face Transformers + PEFT)
 
-# pip install transformers datasets peft accelerate bitsandbytes evaluate
+### Example code: supervised LoRA fine-tune (Hugging Face Transformers + PEFT)
+
+!pip install transformers datasets peft accelerate bitsandbytes evaluate
+
 import os
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorWithPadding
 from transformers import Trainer, TrainingArguments
 from peft import LoraConfig, get_peft_model
 
-# 1) Load base model (decoder-only) and tokenizer
+1) Load base model (decoder-only) and tokenizer
 model_name = "meta-llama/Llama-3-8b-Instruct"  # example; pick a small instruction-tuned model you can run
 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# 2) Prepare dataset: fields -> {"text": email_text, "label": 0/1, "rationale": optional}
+2) Prepare dataset: fields -> {"text": email_text, "label": 0/1, "rationale": optional}
 ds = load_dataset("json", data_files={"train": "train.jsonl", "validation": "val.jsonl"})
 
 def format_example(example):
@@ -84,7 +87,7 @@ def format_example(example):
 
 ds = ds.map(format_example)
 
-# 3) Tokenize
+3) Tokenize
 max_len = 2048
 def tokenize(batch):
     return tokenizer(
@@ -93,7 +96,7 @@ def tokenize(batch):
 
 tokenized = ds.map(tokenize, batched=True, remove_columns=ds["train"].column_names)
 
-# 4) Load model and attach LoRA adapters
+4) Load model and attach LoRA adapters
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype="auto",
@@ -108,10 +111,10 @@ lora_config = LoraConfig(
 )
 model = get_peft_model(model, lora_config)
 
-# Optional: Freeze base weights is handled by PEFT; only adapter params will be trainable
+Optional: Freeze base weights is handled by PEFT; only adapter params will be trainable
 model.print_trainable_parameters()
 
-# 5) Training settings
+5) Training settings
 args = TrainingArguments(
     output_dir="outputs/lora-phish-classifier",
     per_device_train_batch_size=4,
@@ -128,7 +131,7 @@ args = TrainingArguments(
     save_total_limit=2,
 )
 
-# 6) Trainer
+6) Trainer
 data_collator = DataCollatorWithPadding(tokenizer)
 trainer = Trainer(
     model=model,
@@ -144,7 +147,7 @@ trainer.save_model("outputs/lora-phish-classifier")
 
 Sources: Overview and benefits of LoRA/QLoRA as parameter-efficient fine-tuning approaches; empirical evidence of LoRA’s effectiveness for phishing/malicious URL detection tasks.
 
-# Optional preference tuning with DPO
+### Optional preference tuning with DPO
 
 DPO optimizes model outputs directly from preference pairs (preferred vs. dispreferred) and requires no reward model or online rollouts, which simplifies alignment and reduces compute compared to RLHF.
 
@@ -156,7 +159,8 @@ Example: For the same email, pair a correct, concise classification+rationale vs
 
 Example code: DPO training (TRL-style)
 
-# pip install trl transformers datasets peft accelerate bitsandbytes
+!pip install trl transformers datasets peft accelerate bitsandbytes
+
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
@@ -166,7 +170,8 @@ model_name = "outputs/lora-phish-classifier"  # start from your SFT LoRA checkpo
 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Dataset with fields: {"prompt": str, "chosen": str, "rejected": str}
+Dataset with fields: {"prompt": str, "chosen": str, "rejected": str}
+
 dpo_ds = load_dataset("json", data_files={"train": "dpo_train.jsonl", "validation": "dpo_val.jsonl"})
 
 def tokenize_batch(batch):
@@ -178,14 +183,16 @@ def tokenize_batch(batch):
 
 dpo_ds = dpo_ds.map(tokenize_batch, batched=True)
 
-# Load model with LoRA adapters active
+Load model with LoRA adapters active
+
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype="auto",
     device_map="auto"
 )
 
-# DPO configuration
+DPO configuration
+
 dpo_config = DPOConfig(
     output_dir="outputs/dpo-phish-classifier",
     per_device_train_batch_size=2,
@@ -201,7 +208,8 @@ dpo_config = DPOConfig(
     save_total_limit=2,
 )
 
-# Trainer
+Trainer
+
 trainer = DPOTrainer(
     model=model,
     args=dpo_config,
@@ -217,7 +225,7 @@ References: Official DPO implementation and technical descriptions demonstrating
 
 Evaluation and deployment
 
-Metrics:
+### Metrics:
 
 Accuracy/F1 (macro): class balance.
 
