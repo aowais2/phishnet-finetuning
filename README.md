@@ -60,8 +60,9 @@ Why LoRA/QLoRA: dramatically lower VRAM and compute vs full fine-tuning while pr
 
 
 ### Example code: supervised LoRA fine-tune (Hugging Face Transformers + PEFT)
-
-!pip install transformers datasets peft accelerate bitsandbytes evaluate
+```
+pip install transformers datasets peft accelerate bitsandbytes evaluate
+```
 
 ```python
 import os
@@ -69,7 +70,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorWithPadding
 from transformers import Trainer, TrainingArguments
 from peft import LoraConfig, get_peft_model
-'''
+```
 
 1) Load base model (decoder-only) and tokenizer
 
@@ -77,7 +78,7 @@ from peft import LoraConfig, get_peft_model
 model_name = "meta-llama/Llama-3-8b-Instruct"  # example; pick a small instruction-tuned model you can run
 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 tokenizer.pad_token = tokenizer.eos_token
-'''
+```
 2) Prepare dataset: fields -> {"text": email_text, "label": 0/1, "rationale": optional}
 
 ```python
@@ -92,7 +93,7 @@ def format_example(example):
     return {"input_text": prompt, "label": example["label"]}
 
 ds = ds.map(format_example)
-'''
+```
 
 3) Tokenize
 
@@ -104,7 +105,7 @@ def tokenize(batch):
     )
 
 tokenized = ds.map(tokenize, batched=True, remove_columns=ds["train"].column_names)
-'''
+```
 
 4) Load model and attach LoRA adapters
 ```python
@@ -121,12 +122,12 @@ lora_config = LoraConfig(
     target_modules=["q_proj","v_proj","k_proj","o_proj","gate_proj","up_proj","down_proj"]  # typical LLM layers
 )
 model = get_peft_model(model, lora_config)
-'''
+```
 
 Optional: Freeze base weights is handled by PEFT; only adapter params will be trainable
 ```python
 model.print_trainable_parameters()
-'''
+```
 
 5) Training settings
 
@@ -146,7 +147,7 @@ args = TrainingArguments(
     save_steps=200,
     save_total_limit=2,
 )
-'''
+```
 
 6) Trainer
 ```python
@@ -162,7 +163,7 @@ trainer = Trainer(
 
 trainer.train()
 trainer.save_model("outputs/lora-phish-classifier")
-'''
+```
 
 Sources: Overview and benefits of LoRA/QLoRA as parameter-efficient fine-tuning approaches; empirical evidence of LoRA’s effectiveness for phishing/malicious URL detection tasks.
 
@@ -178,9 +179,9 @@ Example: For the same email, pair a correct, concise classification+rationale vs
 
 Example code: DPO training (TRL-style)
 
-'''
+```
 pip install trl transformers datasets peft accelerate bitsandbytes
-'''
+```
 
 ```python
 from datasets import load_dataset
@@ -204,7 +205,7 @@ def tokenize_batch(batch):
     }
 
 dpo_ds = dpo_ds.map(tokenize_batch, batched=True)
-'''
+```
 
 Load model with LoRA adapters active
 
@@ -214,7 +215,7 @@ model = AutoModelForCausalLM.from_pretrained(
     torch_dtype="auto",
     device_map="auto"
 )
-'''
+```
 
 DPO configuration
 
@@ -233,7 +234,7 @@ dpo_config = DPOConfig(
     save_steps=200,
     save_total_limit=2,
 )
-'''
+```
 
 Trainer
 
@@ -248,7 +249,7 @@ trainer = DPOTrainer(
 
 trainer.train()
 trainer.save_model("outputs/dpo-phish-classifier")
-'''
+```
 
 References: Official DPO implementation and technical descriptions demonstrating offline preference optimization without reward models and with lighter infrastructure than RLHF.
 
