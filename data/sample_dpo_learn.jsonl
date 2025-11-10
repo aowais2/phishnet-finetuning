@@ -1,0 +1,2 @@
+{"prompt":"Classify and explain:\n\nEmail:\n...","chosen":"Label: Phishing; Reason: asks for SIN and bank info.","rejected":"Label: Phishing; Reason: looks odd."}
+{"prompt":"Classify and explain:\n\nEmail:\n...","chosen":"Label: Legitimate; Reason: uses ACORN and official utoronto.ca domain.","rejected":"Label: Legitimate; Reason: probably fine."}
