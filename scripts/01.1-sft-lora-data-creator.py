@@ -1,9 +1,9 @@
 import json
 
 # Input file: your DPO dataset
-input_file = "/home/aowais2/Downloads/phishnet-finetuning/data/dpo_dataset.json"
+input_file = "/scratch/aowais2/data/dpo_test.json"
 # Output file: new SFT dataset
-output_file = "/home/aowais2/Downloads/phishnet-finetuning/data/sft.json"
+output_file = "/scratch/aowais2/data/sft_test.json"
 
 sft_data = []
 

@@ -65,8 +65,8 @@ def save_to_json(dpo_data: list, output_path: str):
         json.dump(dpo_data, f, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
-    input_csv = "/home/aowais2/Downloads/phishnet-finetuning/data/master_email_dataset_final.csv"
-    output_json = "/home/aowais2/Downloads/phishnet-finetuning/data/dpo_dataset.json"
+    input_csv = "/scratch/aowais2/data/dpo_test.csv"
+    output_json = "/scratch/aowais2/data/dpo_test.json"
 
     df = load_and_clean_csv(input_csv)
     dpo_data = build_dpo_pairs_parallel(df)

@@ -48,11 +48,11 @@ data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
 
 # 7. Training arguments
 training_args = TrainingArguments(
-    output_dir="/scratch/aowais2/llama32_lora",
+    output_dir="/scratch/aowais2/llama32_lora_4epochs",
     per_device_train_batch_size=4,
     gradient_accumulation_steps=8,
     learning_rate=2e-4,
-    num_train_epochs=1,
+    num_train_epochs=4,
     fp16=True,
     logging_steps=50,
     save_steps=500,
